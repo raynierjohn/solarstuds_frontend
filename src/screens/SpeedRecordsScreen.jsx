@@ -1,16 +1,31 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PageTitle from "../components/PageTitle";
 import EmptyRow from "../components/EmptyRow";
 import RemarkTag from "../components/RemarkTag";
 import { formatDate, isOverspeed } from "../utils/helpers";
+import { subscribeToFirestoreDateLogs } from "../utils/firebase";
 
-export default function SpeedRecordsScreen({ events, selectedDate, threshold }) {
+export default function SpeedRecordsScreen({ selectedDate, threshold = 30 }) {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [sortKey, setSortKey] = useState("event_time");
   const [sortAsc, setSortAsc] = useState(true);
   const [filter, setFilter] = useState("all");
 
+  useEffect(() => {
+    if (!selectedDate) return;
+    setLoading(true);
+
+    const unsubscribe = subscribeToFirestoreDateLogs(selectedDate, (data) => {
+      setEvents(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [selectedDate]);
+
   const rows = useMemo(() => {
-    let list = events.filter((event) => event.event_date === selectedDate);
+    let list = [...events];
 
     if (filter === "over") {
       list = list.filter((event) => isOverspeed(event.speed, threshold));
@@ -18,7 +33,7 @@ export default function SpeedRecordsScreen({ events, selectedDate, threshold }) 
       list = list.filter((event) => !isOverspeed(event.speed, threshold));
     }
 
-    return [...list].sort((a, b) => {
+    return list.sort((a, b) => {
       const av = a[sortKey];
       const bv = b[sortKey];
       const cmp =
@@ -28,7 +43,7 @@ export default function SpeedRecordsScreen({ events, selectedDate, threshold }) 
 
       return sortAsc ? cmp : -cmp;
     });
-  }, [events, selectedDate, filter, sortKey, sortAsc, threshold]);
+  }, [events, filter, sortKey, sortAsc, threshold]);
 
   const toggleSort = (key) => {
     if (sortKey === key) setSortAsc((value) => !value);
@@ -38,15 +53,14 @@ export default function SpeedRecordsScreen({ events, selectedDate, threshold }) 
     }
   };
 
-  const arrow = (key) =>
-    sortKey === key ? (sortAsc ? " ▲" : " ▼") : "";
+  const arrow = (key) => (sortKey === key ? (sortAsc ? " ▲" : " ▼") : "");
 
   if (!selectedDate) {
     return (
       <div>
         <PageTitle title="Speed Records" />
         <div className="border border-gray-300 bg-white p-6 text-sm text-gray-600">
-          Pick a date on the Speed Monitoring calendar to load its records.
+          Pick a date on the Speed Monitoring calendar to load its records from Firestore.
         </div>
       </div>
     );
@@ -90,6 +104,7 @@ export default function SpeedRecordsScreen({ events, selectedDate, threshold }) 
           <thead>
             <tr className="bg-gray-100 border-b border-gray-300">
               {[
+                ["event_id", "Log ID"],
                 ["event_date", "Date"],
                 ["event_time", "Time"],
                 ["speed", "Speed (km/h)"],
@@ -110,20 +125,31 @@ export default function SpeedRecordsScreen({ events, selectedDate, threshold }) 
           </thead>
 
           <tbody>
-            {rows.length === 0 ? (
-              <EmptyRow colSpan={5} message="No records match this filter." />
+            {loading ? (
+              <EmptyRow colSpan={6} message="Fetching records from Firestore..." />
+            ) : rows.length === 0 ? (
+              <EmptyRow colSpan={6} message="No records match this filter for the selected date." />
             ) : (
-              rows.map((event) => (
-                <tr key={event.event_id} className="border-b border-gray-200 last:border-b-0">
-                  <td className="px-3 py-2">{formatDate(event.event_date)}</td>
-                  <td className="px-3 py-2">{event.event_time}</td>
-                  <td className="px-3 py-2">{event.speed.toFixed(2)}</td>
-                  <td className="px-3 py-2">
-                    <RemarkTag over={isOverspeed(event.speed, threshold)} />
-                  </td>
-                  <td className="px-3 py-2 text-gray-600">{event.stud_id}</td>
-                </tr>
-              ))
+              rows.map((event, index) => {
+                // Dynamically extract the sequence number from "trafficLog_1" or "speedLog_1"
+                const logNumber = event.event_id ? event.event_id.replace(/\D/g, "") : index + 1;
+                const displayId = `SpeedRecord_${logNumber}`;
+
+                return (
+                  <tr key={event.event_id} className="border-b border-gray-200 last:border-b-0">
+                    <td className="px-3 py-2 text-gray-600">{displayId}</td>
+                    <td className="px-3 py-2">{formatDate(event.event_date)}</td>
+                    <td className="px-3 py-2">{event.event_time}</td>
+                    <td className={`px-3 py-2 ${isOverspeed(event.speed, threshold) ? "text-red-700 font-bold" : ""}`}>
+                      {Number(event.speed).toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2">
+                      <RemarkTag over={isOverspeed(event.speed, threshold)} />
+                    </td>
+                    <td className="px-3 py-2 text-gray-600">{event.stud_id || "STUD-02"}</td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

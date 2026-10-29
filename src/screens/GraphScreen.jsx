@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -12,8 +12,24 @@ import PageTitle from "../components/PageTitle";
 import EmptyRow from "../components/EmptyRow";
 import RemarkTag from "../components/RemarkTag";
 import { formatDate, isOverspeed } from "../utils/helpers";
+import { subscribeToFirestoreDateLogs } from "../utils/firebase";
 
-export default function GraphScreen({ events, selectedDate, threshold }) {
+export default function GraphScreen({ selectedDate, threshold = 30 }) {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!selectedDate) return;
+    setLoading(true);
+
+    const unsubscribe = subscribeToFirestoreDateLogs(selectedDate, (data) => {
+      setEvents(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [selectedDate]);
+
   const dayEvents = useMemo(
     () => events.filter((event) => event.event_date === selectedDate),
     [events, selectedDate]
@@ -28,7 +44,7 @@ export default function GraphScreen({ events, selectedDate, threshold }) {
     const buckets = {};
 
     violations.forEach((event) => {
-      const time = event.event_time.slice(0, 5);
+      const time = event.event_time ? event.event_time.slice(0, 5) : "00:00";
       buckets[time] = (buckets[time] || 0) + 1;
     });
 
@@ -57,7 +73,11 @@ export default function GraphScreen({ events, selectedDate, threshold }) {
 
       <div className="border border-gray-300 bg-white p-4 mb-6">
         <div className="h-72">
-          {chartData.length === 0 ? (
+          {loading ? (
+            <div className="h-full flex items-center justify-center text-sm text-gray-500">
+              Loading graph data from Firestore...
+            </div>
+          ) : chartData.length === 0 ? (
             <div className="h-full flex items-center justify-center text-sm text-gray-500">
               No overspeeding events recorded on this date.
             </div>
@@ -68,7 +88,7 @@ export default function GraphScreen({ events, selectedDate, threshold }) {
                 <XAxis dataKey="time" tick={{ fontSize: 11 }} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Bar dataKey="events" name="Overspeeding events" />
+                <Bar dataKey="events" fill="#0284c7" name="Overspeeding events" />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -92,14 +112,16 @@ export default function GraphScreen({ events, selectedDate, threshold }) {
           </thead>
 
           <tbody>
-            {violations.length === 0 ? (
+            {loading ? (
+              <EmptyRow colSpan={4} message="Fetching records..." />
+            ) : violations.length === 0 ? (
               <EmptyRow colSpan={4} message="No overspeeding events on this date." />
             ) : (
-              violations.map((event) => (
-                <tr key={event.event_id} className="border-b border-gray-200 last:border-b-0">
+              violations.map((event, index) => (
+                <tr key={event.event_id || index} className="border-b border-gray-200 last:border-b-0">
                   <td className="px-3 py-2">{formatDate(event.event_date)}</td>
                   <td className="px-3 py-2">{event.event_time}</td>
-                  <td className="px-3 py-2">{event.speed.toFixed(2)}</td>
+                  <td className="px-3 py-2 text-red-700 font-bold">{Number(event.speed).toFixed(2)}</td>
                   <td className="px-3 py-2">
                     <RemarkTag over />
                   </td>

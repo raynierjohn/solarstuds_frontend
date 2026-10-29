@@ -9,6 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "firebase": "^12.18.0",
+    "firebase-admin": "^14.4.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "recharts": "^3.2.1"
@@ -18,5 +20,18 @@
     "@vitejs/plugin-react": "^5.0.4",
     "tailwindcss": "^4.1.14",
     "vite": "^7.1.9"
-  }
+  },
+  "description": "simple react app for testing stuff locally.",
+  "main": "vite.config.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/drndl-code/solarstuds_frontend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/drndl-code/solarstuds_frontend/issues"
+  },
+  "homepage": "https://github.com/drndl-code/solarstuds_frontend#readme"
 }

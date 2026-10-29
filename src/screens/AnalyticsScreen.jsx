@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -12,11 +12,23 @@ import PageTitle from "../components/PageTitle";
 import StatCard from "../components/StatCard";
 import { MONTHS } from "../data/constants";
 import { getMonthKey, isOverspeed } from "../utils/helpers";
+import { subscribeToLiveLogs } from "../utils/firebase";
 
-export default function AnalyticsScreen({ events, threshold }) {
+export default function AnalyticsScreen({ threshold = 30 }) {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToLiveLogs((data) => {
+      setEvents(data);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const stats = useMemo(() => {
     const total = events.length;
-    const monthStats = Array.from({ length: 8 }, () => ({
+    const monthStats = Array.from({ length: 12 }, () => ({
       detections: 0,
       violations: 0,
     }));
@@ -26,10 +38,10 @@ export default function AnalyticsScreen({ events, threshold }) {
     let violations = 0;
 
     events.forEach((event) => {
-      speedSum += event.speed;
+      speedSum += Number(event.speed) || 0;
 
       const monthIndex = Number(getMonthKey(event.event_date)) - 1;
-      if (monthIndex >= 0 && monthIndex < 8) {
+      if (monthIndex >= 0 && monthIndex < 12) {
         monthStats[monthIndex].detections += 1;
 
         if (isOverspeed(event.speed, threshold)) {
@@ -40,14 +52,14 @@ export default function AnalyticsScreen({ events, threshold }) {
       if (isOverspeed(event.speed, threshold)) {
         violations += 1;
 
-        const hour = event.event_time.slice(0, 2);
+        const hour = event.event_time ? event.event_time.slice(0, 2) : "00";
         hourViolations[hour] = (hourViolations[hour] || 0) + 1;
       }
     });
 
     const avg = total === 0 ? 0 : speedSum / total;
 
-    const byMonth = MONTHS.slice(0, 8).map((month, index) => ({
+    const byMonth = MONTHS.slice(0, 12).map((month, index) => ({
       month: month.slice(0, 3),
       ...monthStats[index],
     }));
@@ -68,14 +80,13 @@ export default function AnalyticsScreen({ events, threshold }) {
     return { total, violations, avg, byMonth, hourData, peak };
   }, [events, threshold]);
 
-  const rate =
-    stats.total === 0 ? 0 : (stats.violations / stats.total) * 100;
+  const rate = stats.total === 0 ? 0 : (stats.violations / stats.total) * 100;
 
   return (
     <div>
       <PageTitle
         title="Analytics"
-        subtitle="Summary of detections and overspeeding activity across all logged data."
+        subtitle={loading ? "Connecting to Firebase..." : "Summary of detections and overspeeding activity across all logged data."}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
@@ -105,8 +116,8 @@ export default function AnalyticsScreen({ events, threshold }) {
               <XAxis dataKey="month" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip />
-              <Bar dataKey="detections" name="Detections" />
-              <Bar dataKey="violations" name="Violations" />
+              <Bar dataKey="detections" fill="#3b82f6" name="Detections" />
+              <Bar dataKey="violations" fill="#ef4444" name="Violations" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -123,7 +134,7 @@ export default function AnalyticsScreen({ events, threshold }) {
               <XAxis dataKey="hour" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip />
-              <Bar dataKey="violations" name="Violations" />
+              <Bar dataKey="violations" fill="#dc2626" name="Violations" />
             </BarChart>
           </ResponsiveContainer>
         </div>

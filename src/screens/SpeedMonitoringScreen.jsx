@@ -3,13 +3,15 @@ import PageTitle from "../components/PageTitle";
 import { CALENDAR_YEAR, MONTHS, WEEKDAYS } from "../data/constants";
 import { formatDate, pad } from "../utils/helpers";
 
-export default function SpeedMonitoringScreen({ events, selectedDate, onSelectDate }) {
-  const [month, setMonth] = useState(2);
+export default function SpeedMonitoringScreen({ events = [], selectedDate, onSelectDate }) {
+  const [month, setMonth] = useState(8); // Default to September 2026 (0-indexed: 8)
 
   const countsByDate = useMemo(() => {
     const map = {};
     events.forEach((event) => {
-      map[event.event_date] = (map[event.event_date] || 0) + 1;
+      if (event.event_date) {
+        map[event.event_date] = (map[event.event_date] || 0) + 1;
+      }
     });
     return map;
   }, [events]);
@@ -57,7 +59,7 @@ export default function SpeedMonitoringScreen({ events, selectedDate, onSelectDa
           {WEEKDAYS.map((day) => (
             <div
               key={day}
-              className="text-xs text-gray-500 text-center py-2 border-r border-gray-200 last:border-r-0"
+              className="text-xs text-gray-500 text-center py-2 border-r border-gray-200 last:border-r-0 font-medium"
             >
               {day}
             </div>
@@ -82,22 +84,23 @@ export default function SpeedMonitoringScreen({ events, selectedDate, onSelectDa
             return (
               <button
                 key={iso}
-                onClick={() => count > 0 && onSelectDate(iso)}
-                disabled={count === 0}
-                className={`h-20 border-r border-b border-gray-200 p-2 text-left align-top ${
+                onClick={() => onSelectDate(iso)}
+                className={`h-20 border-r border-b border-gray-200 p-2 text-left align-top transition-colors ${
                   isSelected
                     ? "bg-gray-900 text-white"
                     : count > 0
-                    ? "bg-white hover:bg-gray-100"
-                    : "bg-gray-50 text-gray-400 cursor-default"
+                    ? "bg-white hover:bg-blue-50"
+                    : "bg-gray-50 text-gray-400 hover:bg-gray-100"
                 }`}
               >
-                <span className="text-sm">{day}</span>
+                <span className="text-sm font-medium">{day}</span>
                 {count > 0 && (
-                  <span className={`block text-xs mt-1 ${
-                    isSelected ? "text-gray-200" : "text-gray-600"
-                  }`}>
-                    {count} records
+                  <span
+                    className={`block text-xs mt-1 font-semibold ${
+                      isSelected ? "text-blue-200" : "text-blue-600"
+                    }`}
+                  >
+                    {count} record{count === 1 ? "" : "s"}
                   </span>
                 )}
               </button>
@@ -108,7 +111,7 @@ export default function SpeedMonitoringScreen({ events, selectedDate, onSelectDa
 
       <p className="text-sm text-gray-600 mt-4">
         {selectedDate
-          ? `Selected date: ${formatDate(selectedDate)}. Open Speed Records to view the log.`
+          ? `Selected date: ${formatDate(selectedDate)}. Open Speed Records or Speed Graph to view detailed logs.`
           : "No date selected yet."}
       </p>
     </div>
