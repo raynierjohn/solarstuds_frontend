@@ -3,18 +3,22 @@ import PageTitle from "../components/PageTitle";
 import EmptyRow from "../components/EmptyRow";
 import { MONTH_OPTIONS } from "../data/constants";
 import { formatDate, getMonthKey, isOverspeed } from "../utils/helpers";
-import { subscribeToLiveLogs } from "../utils/firebase";
+import { subscribeToAllFirestoreLogs } from "../utils/firebase";
 
 export default function OverspeedingScreen({ threshold = 30 }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [month, setMonth] = useState("all");
 
   useEffect(() => {
-    const unsubscribe = subscribeToLiveLogs((data) => {
-      setEvents(data);
-      setLoading(false);
-    });
+    const unsubscribe = subscribeToAllFirestoreLogs(
+      (data) => {
+        setEvents(data);
+        setLoading(false);
+      },
+      (err) => setError(err.message)
+    );
     return () => unsubscribe();
   }, []);
 
@@ -52,15 +56,23 @@ export default function OverspeedingScreen({ threshold = 30 }) {
         </select>
 
         <span className="text-sm text-gray-500 ml-auto">
-          {loading ? "Connecting to Firebase..." : `Showing ${rows.length} violation records`}
+          {error
+            ? "Failed to load Firestore data"
+            : loading
+            ? "Connecting to Firestore..."
+            : `Showing ${rows.length} violation records`}
         </span>
       </div>
+
+      {error && (
+        <p className="text-sm text-red-600 mb-3">Error: {error}</p>
+      )}
 
       <div className="border border-gray-300 bg-white overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-100 border-b border-gray-300">
-              {["Event ID", "Date", "Time", "Speed (km/h)", "Over Limit By", "Stud ID"].map((header) => (
+              {["Event ID", "Date", "Time", "Speed (km/h)", "Over Limit By"].map((header) => (
                 <th key={header} className="px-3 py-2 text-left font-medium text-gray-700">
                   {header}
                 </th>
@@ -70,16 +82,16 @@ export default function OverspeedingScreen({ threshold = 30 }) {
 
           <tbody>
             {loading ? (
-              <EmptyRow colSpan={6} message="Loading live violations..." />
+              <EmptyRow colSpan={5} message="Loading violations from Firestore..." />
             ) : rows.length === 0 ? (
-              <EmptyRow colSpan={6} message="No violations recorded for this period." />
+              <EmptyRow colSpan={5} message="No violations recorded for this period." />
             ) : (
               rows.map((event, index) => {
                 const logNum = event.event_id ? event.event_id.replace(/\D/g, "") : index + 1;
                 const displayId = `SpeedRecord_${logNum}`;
 
                 return (
-                  <tr key={event.event_id || index} className="border-b border-gray-200 last:border-b-0 bg-red-50">
+                  <tr key={event.unique_key || index} className="border-b border-gray-200 last:border-b-0 bg-red-50">
                     <td className="px-3 py-2 text-gray-600 font-mono text-xs">{displayId}</td>
                     <td className="px-3 py-2">{formatDate(event.event_date)}</td>
                     <td className="px-3 py-2">{event.event_time}</td>
@@ -89,7 +101,6 @@ export default function OverspeedingScreen({ threshold = 30 }) {
                     <td className="px-3 py-2 text-red-600 font-medium">
                       +{(Number(event.speed) - threshold).toFixed(2)}
                     </td>
-                    <td className="px-3 py-2 text-gray-600">{event.stud_id || "STUD-02"}</td>
                   </tr>
                 );
               })

@@ -35,7 +35,7 @@ export default function RealtimeLogsScreen({ threshold = 30 }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-100 border-b border-gray-300">
-              {["Log ID", "Date", "Time", "Speed (km/h)", "Stud ID", "Alert Triggered", "Remarks"].map((header) => (
+              {["Log ID", "Date", "Time", "Speed (km/h)", "Alert Triggered", "Remarks"].map((header) => (
                 <th key={header} className="px-3 py-2 text-left font-medium text-gray-700">
                   {header}
                 </th>
@@ -58,7 +58,6 @@ export default function RealtimeLogsScreen({ threshold = 30 }) {
                     <td className={`px-3 py-2 font-medium ${over ? "text-red-700 font-bold" : ""}`}>
                       {event.speed.toFixed(2)}
                     </td>
-                    <td className="px-3 py-2 text-gray-600">{event.stud_id}</td>
                     <td className="px-3 py-2">{over ? "Yes" : "No"}</td>
                     <td className="px-3 py-2">
                       <RemarkTag over={over} />

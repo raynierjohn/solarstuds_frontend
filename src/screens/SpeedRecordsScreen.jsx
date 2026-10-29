@@ -118,17 +118,14 @@ export default function SpeedRecordsScreen({ selectedDate, threshold = 30 }) {
                   {label}{arrow(key)}
                 </th>
               ))}
-              <th className="px-3 py-2 text-left font-medium text-gray-700">
-                Stud ID
-              </th>
             </tr>
           </thead>
 
           <tbody>
             {loading ? (
-              <EmptyRow colSpan={6} message="Fetching records from Firestore..." />
+              <EmptyRow colSpan={5} message="Fetching records from Firestore..." />
             ) : rows.length === 0 ? (
-              <EmptyRow colSpan={6} message="No records match this filter for the selected date." />
+              <EmptyRow colSpan={5} message="No records match this filter for the selected date." />
             ) : (
               rows.map((event, index) => {
                 // Dynamically extract the sequence number from "trafficLog_1" or "speedLog_1"
@@ -146,7 +143,6 @@ export default function SpeedRecordsScreen({ selectedDate, threshold = 30 }) {
                     <td className="px-3 py-2">
                       <RemarkTag over={isOverspeed(event.speed, threshold)} />
                     </td>
-                    <td className="px-3 py-2 text-gray-600">{event.stud_id || "STUD-02"}</td>
                   </tr>
                 );
               })

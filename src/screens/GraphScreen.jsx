@@ -30,10 +30,7 @@ export default function GraphScreen({ selectedDate, threshold = 30 }) {
     return () => unsubscribe();
   }, [selectedDate]);
 
-  const dayEvents = useMemo(
-    () => events.filter((event) => event.event_date === selectedDate),
-    [events, selectedDate]
-  );
+  const dayEvents = events;
 
   const violations = useMemo(
     () => dayEvents.filter((event) => isOverspeed(event.speed, threshold)),

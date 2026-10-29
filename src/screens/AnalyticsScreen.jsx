@@ -12,17 +12,21 @@ import PageTitle from "../components/PageTitle";
 import StatCard from "../components/StatCard";
 import { MONTHS } from "../data/constants";
 import { getMonthKey, isOverspeed } from "../utils/helpers";
-import { subscribeToLiveLogs } from "../utils/firebase";
+import { subscribeToAllFirestoreLogs } from "../utils/firebase";
 
 export default function AnalyticsScreen({ threshold = 30 }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const unsubscribe = subscribeToLiveLogs((data) => {
-      setEvents(data);
-      setLoading(false);
-    });
+    const unsubscribe = subscribeToAllFirestoreLogs(
+      (data) => {
+        setEvents(data);
+        setLoading(false);
+      },
+      (err) => setError(err.message)
+    );
     return () => unsubscribe();
   }, []);
 
@@ -86,8 +90,16 @@ export default function AnalyticsScreen({ threshold = 30 }) {
     <div>
       <PageTitle
         title="Analytics"
-        subtitle={loading ? "Connecting to Firebase..." : "Summary of detections and overspeeding activity across all logged data."}
+        subtitle={
+          error
+            ? "Failed to load Firestore data."
+            : loading
+            ? "Connecting to Firestore..."
+            : "Summary of detections and overspeeding activity across all logged data."
+        }
       />
+
+      {error && <p className="text-sm text-red-600 mb-3">Error: {error}</p>}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
         <StatCard label="Total detections" value={stats.total} />

@@ -1,21 +1,23 @@
+import { getAuth } from "firebase/auth";
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, onValue } from "firebase/database";
-import { getFirestore, collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { getFirestore, collection, onSnapshot, query, orderBy, getCountFromServer, collectionGroup } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyD7IZnc5HQLfDVs7gEgXQUP7jojRDidQoU",
-  authDomain: "solarstuds-3fd0c.firebaseapp.com",
-  databaseURL: "https://solarstuds-3fd0c-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "solarstuds-3fd0c",
-  storageBucket: "solarstuds-3fd0c.firebasestorage.app",
-  messagingSenderId: "267001520479",
-  appId: "1:267001520479:web:45d6c8a44b052bd5a116ea"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const rtdb = getDatabase(app);
 export const db = getFirestore(app);
+export const auth = getAuth(app);
 
 // Realtime Listener for Live RTDB Traffic Logs
 export const subscribeToLiveLogs = (callback) => {
@@ -81,4 +83,58 @@ export const subscribeToFirestoreDateLogs = (dateStr, callback) => {
     }));
     callback(logs);
   });
+};
+
+export const fetchMonthCounts = async (year, monthIndex) => {
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const mm = String(monthIndex + 1).padStart(2, "0");
+
+  const entries = await Promise.all(
+    Array.from({ length: daysInMonth }, async (_, i) => {
+      const iso = `${year}-${mm}-${String(i + 1).padStart(2, "0")}`;
+      try {
+        const snap = await getCountFromServer(collection(db, "TrafficLogs", iso, "Logs"));
+        return [iso, snap.data().count];
+      } catch (err) {
+        console.error("Count failed for", iso, err);
+        return [iso, 0];
+      }
+    })
+  );
+
+  return Object.fromEntries(entries);
+};
+
+// Realtime listener for ALL Firestore logs: TrafficLogs/{YYYY-MM-DD}/Logs
+export const subscribeToAllFirestoreLogs = (callback, onError) => {
+  return onSnapshot(
+    collectionGroup(db, "Logs"),
+    (snapshot) => {
+      const logs = snapshot.docs.map((d) => {
+        const data = d.data();
+        const dateFromPath = d.ref.parent.parent?.id || "N/A"; // the YYYY-MM-DD parent doc id
+        return {
+          event_id: d.id,
+          unique_key: d.ref.path,
+          event_date: data.date || dateFromPath,
+          event_time: data.time || "N/A",
+          speed: Number(data.speed) || 0,
+          stud_id: "STUD-02",
+          overspeed_flag: data.overspeed_flag || false,
+          alert_triggered: data.alert_triggered || false,
+        };
+      });
+
+      // newest first
+      logs.sort((a, b) =>
+        (b.event_date + b.event_time).localeCompare(a.event_date + a.event_time)
+      );
+      callback(logs);
+    },
+    (err) => {
+      console.error("Firestore logs error:", err);
+      if (onError) onError(err);
+      callback([]);
+    }
+  );
 };

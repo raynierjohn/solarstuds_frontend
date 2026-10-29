@@ -1,16 +1,44 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PageTitle from "../components/PageTitle";
 import { CALENDAR_YEAR, MONTHS, WEEKDAYS } from "../data/constants";
 import { formatDate, pad } from "../utils/helpers";
+import { fetchMonthCounts } from "../utils/firebase"; 
 
 export default function SpeedMonitoringScreen({ events = [], selectedDate, onSelectDate }) {
-  const [month, setMonth] = useState(8); // Default to September 2026 (0-indexed: 8)
+  const [month, setMonth] = useState(() => {
+    if (selectedDate) return Number(selectedDate.split("-")[1]) - 1;
+    const now = new Date();
+    return now.getFullYear() === CALENDAR_YEAR ? now.getMonth() : 0;
+  });
 
+  const [firestoreCounts, setFirestoreCounts] = useState({});
+  const [loadingCounts, setLoadingCounts] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingCounts(true);
+
+    fetchMonthCounts(CALENDAR_YEAR, month)
+      .then((counts) => {
+        if (!cancelled) setFirestoreCounts((prev) => ({ ...prev, ...counts }));
+      })
+      .catch((err) => console.error("Failed to load month counts:", err))
+      .finally(() => {
+        if (!cancelled) setLoadingCounts(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [month]);
+
+  // Fallback counts from the live RTDB events passed in as a prop
   const countsByDate = useMemo(() => {
     const map = {};
     events.forEach((event) => {
-      if (event.event_date) {
-        map[event.event_date] = (map[event.event_date] || 0) + 1;
+      const key = typeof event.event_date === "string" ? event.event_date.trim() : null;
+      if (key) {
+        map[key] = (map[key] || 0) + 1;
       }
     });
     return map;
@@ -44,6 +72,9 @@ export default function SpeedMonitoringScreen({ events = [], selectedDate, onSel
 
           <p className="text-sm font-medium text-gray-900">
             {MONTHS[month]} {CALENDAR_YEAR}
+            {loadingCounts && (
+              <span className="ml-2 text-xs font-normal text-gray-400">Loading…</span>
+            )}
           </p>
 
           <button
@@ -78,7 +109,7 @@ export default function SpeedMonitoringScreen({ events = [], selectedDate, onSel
             }
 
             const iso = `${CALENDAR_YEAR}-${pad(month + 1)}-${pad(day)}`;
-            const count = countsByDate[iso] || 0;
+            const count = firestoreCounts[iso] || countsByDate[iso] || 0;
             const isSelected = selectedDate === iso;
 
             return (

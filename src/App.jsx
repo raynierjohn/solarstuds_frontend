@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
 
 import LoginScreen from "./screens/LoginScreen";
 import SpeedMonitoringScreen from "./screens/SpeedMonitoringScreen";
@@ -6,67 +7,62 @@ import SpeedRecordsScreen from "./screens/SpeedRecordsScreen";
 import RealtimeLogsScreen from "./screens/RealtimeLogsScreen";
 import OverspeedingScreen from "./screens/OverspeedingScreen";
 import AnalyticsScreen from "./screens/AnalyticsScreen";
-import StudStatusScreen from "./screens/StudStatusScreen";
 import GraphScreen from "./screens/GraphScreen";
+import StudStatusScreen from "./screens/StudStatusScreen";
 
-import { ADMIN, INITIAL_EVENTS, INITIAL_STUDS } from "./data/mockData";
-import { NAV } from "./data/constants";
-import { isOverspeed, pad } from "./utils/helpers";
+import { NAV, DEFAULT_THRESHOLD } from "./data/constants";
+import { subscribeToLiveLogs, auth } from "./utils/firebase";
+import { logout } from "./utils/auth";
 
 export default function App() {
-  const [loggedIn, setLoggedIn] = useState(false);
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [page, setPage] = useState("monitoring");
-  const [selectedDate, setSelectedDate] = useState("2026-03-26");
-  const [studs, setStuds] = useState(INITIAL_STUDS);
-  const [events] = useState(INITIAL_EVENTS);
-  const [liveEvents, setLiveEvents] = useState(() =>
-    [...INITIAL_EVENTS].slice(-20).reverse()
-  );
+  const [selectedDate, setSelectedDate] = useState(null); // no date selected until the user picks one
+  const [liveEvents, setLiveEvents] = useState([]);
 
-  const threshold = studs[0]?.speed_threshold ?? 30;
+  const threshold = DEFAULT_THRESHOLD;
 
+  // Track Firebase login state (also keeps you logged in after a page refresh)
   useEffect(() => {
-    if (!loggedIn) return undefined;
-
-    const intervalId = setInterval(() => {
-      const now = new Date();
-      const speed = Math.round((20 + Math.random() * 32) * 100) / 100;
-
-      setLiveEvents((previous) => {
-        const nextEvent = {
-          event_id: 900000 + Date.now(),
-          stud_id: Math.random() < 0.5 ? "SDS-01" : "SDS-02",
-          speed,
-          event_date: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
-          event_time: `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`,
-          overspeed_flag: isOverspeed(speed, threshold),
-        };
-
-        return [nextEvent, ...previous].slice(0, 40);
-      });
-    }, 6000);
-
-    return () => clearInterval(intervalId);
-  }, [loggedIn, threshold]);
-
-  const updateStud = useCallback((id, patch) => {
-    setStuds((previous) =>
-      previous.map((stud) =>
-        stud.stud_id === id ? { ...stud, ...patch } : stud
-      )
-    );
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      setAuthLoading(false);
+    });
+    return unsubscribe;
   }, []);
 
-  if (!loggedIn) {
-    return <LoginScreen onLogin={() => setLoggedIn(true)} />;
+  // Real-time logs from the Realtime Database (only once logged in)
+  useEffect(() => {
+    if (!user) return undefined;
+
+    const unsubscribe = subscribeToLiveLogs((data) => {
+      setLiveEvents(data.slice(0, 40)); // data is already newest-first
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // All hooks are above these early returns (required by React)
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 text-gray-600">
+        Loading...
+      </div>
+    );
   }
+
+  if (!user) {
+    return <LoginScreen />;
+  }
+
+  const username = user.email ? user.email.split("@")[0] : "admin";
 
   const renderPage = () => {
     switch (page) {
       case "monitoring":
         return (
           <SpeedMonitoringScreen
-            events={events}
             selectedDate={selectedDate}
             onSelectDate={(date) => {
               setSelectedDate(date);
@@ -78,7 +74,6 @@ export default function App() {
       case "records":
         return (
           <SpeedRecordsScreen
-            events={events}
             selectedDate={selectedDate}
             threshold={threshold}
           />
@@ -93,18 +88,17 @@ export default function App() {
         );
 
       case "overspeeding":
-        return <OverspeedingScreen events={events} threshold={threshold} />;
+        return <OverspeedingScreen threshold={threshold} />;
 
       case "analytics":
-        return <AnalyticsScreen events={events} threshold={threshold} />;
+        return <AnalyticsScreen threshold={threshold} />;
 
       case "studs":
-        return <StudStatusScreen studs={studs} onUpdateStud={updateStud} />;
+        return <StudStatusScreen />;
 
       case "graph":
         return (
           <GraphScreen
-            events={events}
             selectedDate={selectedDate}
             threshold={threshold}
           />
@@ -129,11 +123,11 @@ export default function App() {
           </div>
 
           <span className="text-sm text-gray-600">
-            {ADMIN.username} · {ADMIN.role}
+            {username} · System Administrator
           </span>
 
           <button
-            onClick={() => setLoggedIn(false)}
+            onClick={logout}
             className="text-sm px-3 py-1 border border-gray-300 hover:bg-gray-100"
           >
             Log out

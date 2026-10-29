@@ -1,35 +1,44 @@
 import { useState } from "react";
-import { ADMIN } from "../data/mockData";
+import { loginWithUsername } from "../utils/auth";
 
-export default function LoginScreen({ onLogin }) {
+export default function LoginScreen() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const submit = () => {
-    if (username === ADMIN.username && password === ADMIN.password) {
-      setError("");
-      onLogin();
-    } else {
-      setError("Incorrect username or password. Try again.");
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      await loginWithUsername(username, password);
+      // No redirect needed: onAuthStateChanged in App.jsx handles it.
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm border border-gray-300 bg-white p-6">
-        <h1 className="text-lg font-semibold text-gray-900">Speed Monitoring System</h1>
-        <p className="text-sm text-gray-500 mt-1 mb-6">
-          IoT-Enabled Solar Studs: Administrator Login
-        </p>
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-sm bg-white border border-gray-300 p-6"
+      >
+        <h1 className="text-base font-semibold text-gray-900">
+          Speed Monitoring System
+        </h1>
 
         <label className="block text-sm text-gray-700 mb-1">Username</label>
         <input
           type="text"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && submit()}
-          className="w-full border border-gray-300 px-3 py-2 text-sm mb-4 focus:outline-none focus:border-gray-600"
+          autoComplete="username"
+          autoFocus
+          className="w-full border border-gray-300 px-3 py-2 text-sm mb-4 focus:outline-none focus:border-gray-900"
         />
 
         <label className="block text-sm text-gray-700 mb-1">Password</label>
@@ -37,23 +46,20 @@ export default function LoginScreen({ onLogin }) {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && submit()}
-          className="w-full border border-gray-300 px-3 py-2 text-sm mb-4 focus:outline-none focus:border-gray-600"
+          autoComplete="current-password"
+          className="w-full border border-gray-300 px-3 py-2 text-sm mb-4 focus:outline-none focus:border-gray-900"
         />
 
-        {error && <p className="text-sm text-red-700 mb-3">{error}</p>}
+        {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
 
         <button
-          onClick={submit}
-          className="w-full bg-gray-900 text-white text-sm py-2 hover:bg-gray-700"
+          type="submit"
+          disabled={loading}
+          className="w-full text-sm px-3 py-2 border border-gray-300 bg-gray-900 text-white hover:bg-gray-700 disabled:opacity-60"
         >
-          Log in
+          {loading ? "Signing in..." : "Log in"}
         </button>
-
-        <p className="text-xs text-gray-500 mt-4">
-          Demo credentials: admin / admin123
-        </p>
-      </div>
+      </form>
     </div>
   );
 }
