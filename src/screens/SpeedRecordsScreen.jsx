@@ -104,7 +104,6 @@ export default function SpeedRecordsScreen({ selectedDate, threshold = 30 }) {
           <thead>
             <tr className="bg-gray-100 border-b border-gray-300">
               {[
-                ["event_id", "Log ID"],
                 ["event_date", "Date"],
                 ["event_time", "Time"],
                 ["speed", "Speed (km/h)"],
@@ -123,29 +122,22 @@ export default function SpeedRecordsScreen({ selectedDate, threshold = 30 }) {
 
           <tbody>
             {loading ? (
-              <EmptyRow colSpan={5} message="Fetching records from Firestore..." />
+              <EmptyRow colSpan={4} message="Fetching records from Firestore..." />
             ) : rows.length === 0 ? (
-              <EmptyRow colSpan={5} message="No records match this filter for the selected date." />
+              <EmptyRow colSpan={4} message="No records match this filter for the selected date." />
             ) : (
-              rows.map((event, index) => {
-                // Dynamically extract the sequence number from "trafficLog_1" or "speedLog_1"
-                const logNumber = event.event_id ? event.event_id.replace(/\D/g, "") : index + 1;
-                const displayId = `SpeedRecord_${logNumber}`;
-
-                return (
-                  <tr key={event.event_id} className="border-b border-gray-200 last:border-b-0">
-                    <td className="px-3 py-2 text-gray-600">{displayId}</td>
-                    <td className="px-3 py-2">{formatDate(event.event_date)}</td>
-                    <td className="px-3 py-2">{event.event_time}</td>
-                    <td className={`px-3 py-2 ${isOverspeed(event.speed, threshold) ? "text-red-700 font-bold" : ""}`}>
-                      {Number(event.speed).toFixed(2)}
-                    </td>
-                    <td className="px-3 py-2">
-                      <RemarkTag over={isOverspeed(event.speed, threshold)} />
-                    </td>
-                  </tr>
-                );
-              })
+              rows.map((event) => (
+                <tr key={event.event_id} className="border-b border-gray-200 last:border-b-0">
+                  <td className="px-3 py-2">{formatDate(event.event_date)}</td>
+                  <td className="px-3 py-2">{event.event_time}</td>
+                  <td className={`px-3 py-2 ${isOverspeed(event.speed, threshold) ? "text-red-700 font-bold" : ""}`}>
+                    {Number(event.speed).toFixed(2)}
+                  </td>
+                  <td className="px-3 py-2">
+                    <RemarkTag over={isOverspeed(event.speed, threshold)} />
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>
