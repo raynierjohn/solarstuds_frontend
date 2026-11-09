@@ -72,7 +72,7 @@ export default function OverspeedingScreen({ threshold = 30 }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-100 border-b border-gray-300">
-              {["Event ID", "Date", "Time", "Speed (km/h)", "Over Limit By"].map((header) => (
+              {["Date", "Time", "Speed (km/h)", "Over Limit By"].map((header) => (
                 <th key={header} className="px-3 py-2 text-left font-medium text-gray-700">
                   {header}
                 </th>
@@ -82,28 +82,22 @@ export default function OverspeedingScreen({ threshold = 30 }) {
 
           <tbody>
             {loading ? (
-              <EmptyRow colSpan={5} message="Loading violations from Firestore..." />
+              <EmptyRow colSpan={4} message="Loading violations from Firestore..." />
             ) : rows.length === 0 ? (
-              <EmptyRow colSpan={5} message="No violations recorded for this period." />
+              <EmptyRow colSpan={4} message="No violations recorded for this period." />
             ) : (
-              rows.map((event, index) => {
-                const logNum = event.event_id ? event.event_id.replace(/\D/g, "") : index + 1;
-                const displayId = `SpeedRecord_${logNum}`;
-
-                return (
-                  <tr key={event.unique_key || index} className="border-b border-gray-200 last:border-b-0 bg-red-50">
-                    <td className="px-3 py-2 text-gray-600 font-mono text-xs">{displayId}</td>
-                    <td className="px-3 py-2">{formatDate(event.event_date)}</td>
-                    <td className="px-3 py-2">{event.event_time}</td>
-                    <td className="px-3 py-2 text-red-700 font-bold">
-                      {Number(event.speed).toFixed(2)}
-                    </td>
-                    <td className="px-3 py-2 text-red-600 font-medium">
-                      +{(Number(event.speed) - threshold).toFixed(2)}
-                    </td>
-                  </tr>
-                );
-              })
+              rows.map((event, index) => (
+                <tr key={event.unique_key || index} className="border-b border-gray-200 last:border-b-0 bg-red-50">
+                  <td className="px-3 py-2">{formatDate(event.event_date)}</td>
+                  <td className="px-3 py-2">{event.event_time}</td>
+                  <td className="px-3 py-2 text-red-700 font-bold">
+                    {Number(event.speed).toFixed(2)}
+                  </td>
+                  <td className="px-3 py-2 text-red-600 font-medium">
+                    +{(Number(event.speed) - threshold).toFixed(2)}
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>
