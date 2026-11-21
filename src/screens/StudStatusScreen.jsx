@@ -94,7 +94,7 @@ export default function StudStatusScreen() {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-100 border-b border-gray-300">
-              {["Device Name", "Type", "Status", "Error Details"].map((header) => (
+              {["Device Name", "Status", "Error Details"].map((header) => (
                 <th key={header} className="px-3 py-2 text-left font-medium text-gray-700">
                   {header}
                 </th>
@@ -105,13 +105,13 @@ export default function StudStatusScreen() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={4} className="text-center py-4 text-gray-500">
+                <td colSpan={3} className="text-center py-4 text-gray-500">
                   Fetching hardware status from Firebase...
                 </td>
               </tr>
             ) : studsWithStatus.length === 0 ? (
               <tr>
-                <td colSpan={4} className="text-center py-4 text-gray-500">
+                <td colSpan={3} className="text-center py-4 text-gray-500">
                   No system status pings received yet.
                 </td>
               </tr>
@@ -119,7 +119,6 @@ export default function StudStatusScreen() {
               studsWithStatus.map((stud) => (
                 <tr key={stud.stud_id} className="border-b border-gray-200 last:border-b-0">
                   <td className="px-3 py-2 font-medium text-gray-800">{stud.name}</td>
-                  <td className="px-3 py-2">{stud.type}</td>
                   <td className="px-3 py-2">
                     <span
                       className={`inline-block px-2 py-0.5 text-xs font-semibold rounded ${badgeClass(stud)}`}
